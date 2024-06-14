@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 )
 
@@ -29,50 +28,60 @@ type WeatherData struct {
 	} `json:"properties"`
 }
 
-func GetWeatherData(url string) (WeatherData, error) {
-
+func FetchURL(url string) ([]byte, error) {
 	resp, err := http.Get(url)
 	if err != nil {
-		log.Fatalf("Failed to get forecast: %v", err)
+		return nil, fmt.Errorf("failed to get URL: %v", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
 
-	var getForecastUrl GetForecastUrl
-	err = json.Unmarshal(body, &getForecastUrl)
+	return body, nil
+}
+
+func UnmarshalJSON[T any](data []byte) (T, error) {
+	var obj T
+	err := json.Unmarshal(data, &obj)
 	if err != nil {
-		log.Fatalf("Failed to unmarshal forecast: %v", err)
+		return obj, fmt.Errorf("failed to unmarshal JSON: %v", err)
+	}
+	return obj, nil
+}
+
+func GetWeatherData(url string) (WeatherData, error) {
+	body, err := FetchURL(url)
+	if err != nil {
+		return WeatherData{}, err
+	}
+
+	getForecastUrl, err := UnmarshalJSON[GetForecastUrl](body)
+	if err != nil {
+		return WeatherData{}, err
 	}
 
 	if getForecastUrl.Properties.Forecast == "" {
-		log.Fatal("Forecast URL is empty")
+		return WeatherData{}, fmt.Errorf("forecast URL is empty")
 	}
 
-	resp, err = http.Get(getForecastUrl.Properties.Forecast)
+	body, err = FetchURL(getForecastUrl.Properties.Forecast)
 	if err != nil {
-		log.Fatalf("Failed to get forecast: %v", err)
+		return WeatherData{}, err
 	}
 
-	body, err = ioutil.ReadAll(resp.Body)
+	weatherData, err := UnmarshalJSON[WeatherData](body)
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	var weatherData WeatherData
-	err = json.Unmarshal(body, &weatherData)
-	if err != nil {
-		log.Fatalf("Failed to unmarshal weather data: %v", err)
+		return WeatherData{}, err
 	}
 
 	if len(weatherData.Properties.Periods) == 0 {
-		log.Fatal("No weather data available")
+		return WeatherData{}, fmt.Errorf("no weather data available")
 	}
-	return weatherData, nil
 
+	return weatherData, nil
 }
 
 func main() {
@@ -84,15 +93,15 @@ func main() {
 	urls["Chicago"] = "https://api.weather.gov/points/41.8376,-87.6818"
 
 	for city, url := range urls {
-		weatherData, err := GetWeatherData(url)
+		WeatherData, err := GetWeatherData(url)
 		if err != nil {
-			log.Printf("Failed to get weather data for %s: %v", city, err)
+			fmt.Printf("Failed to get weather data for %s: %v\n", city, err)
 			continue
 		}
 
-		humidity := weatherData.Properties.Periods[0].RelativeHumidity.Value
-		temp := weatherData.Properties.Periods[0].Temperature
-		dewpoint := weatherData.Properties.Periods[0].Dewpoint.Value
+		humidity := WeatherData.Properties.Periods[0].RelativeHumidity.Value
+		temp := WeatherData.Properties.Periods[0].Temperature
+		dewpoint := WeatherData.Properties.Periods[0].Dewpoint.Value
 
 		fmt.Printf("The current humidity for the area of %s is %d%%\n", city, humidity)
 		fmt.Printf("The current temperature for the area of %s is %d F\n", city, temp)
