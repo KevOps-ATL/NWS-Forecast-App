@@ -1,0 +1,16 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nws-forecast-cron
+spec:
+  schedule: "0 6,18 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: nws-forecast
+            image: karateexplosion/nws-forecast-data:v0.0.1
+            imagePullPolicy: IfNotPresent
+          restartPolicy: OnFailure
+---
