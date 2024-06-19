@@ -1,9 +1,13 @@
 # subnets/outputs.tf
 
-output "pubsub1_id" {
-  value = aws_subnet.pubsub1.id
+output "priv1_id" {
+  value = aws_subnet.priv1.id
 }
 
-output "pubsub2_id" {
-  value = aws_subnet.pubsub2.id
+output "priv2_id" {
+  value = aws_subnet.priv2.id
+}
+
+output "pub_id" {
+  value = aws_subnet.public.id
 }
